@@ -1,0 +1,8 @@
+[project]
+name = "cv-linkedin-converter"
+version = "0.2.0"
+description = "Convert a LinkedIn profile into a beautifully typeset CV using Cursor agent skills"
+requires-python = ">=3.10"
+dependencies = [
+    "reportlab>=4.4.10",
+]
