@@ -444,10 +444,27 @@ The user provides a theme name, mood, or color direction. Interpret this the way
 | Theme Aspect | Design Decision |
 |---|---|
 | **Mood** | Formal → serif-heavy, tight spacing. Creative → sans-serif mix, generous whitespace. Technical → monospace accents, grid precision. |
-| **Color palette** | Derive 2-3 text colors maximum. One dominant (body), one accent (headings/name), one muted (dates/metadata). No background colors — always white/off-white page. |
-| **Typographic voice** | Quiet authority → thin weights, large sizes. Bold confidence → heavy weights, compact layout. Elegant restraint → italic accents, wide letter-spacing on headings. |
+| **Color palette** | Derive 2-3 text colors maximum. One dominant (body), one accent (headings/name), one muted (dates/metadata). For most themes, no background colors. For **artsy/creative themes**, see below. |
+| **Typographic voice** | Quiet authority → thin weights, large sizes. Bold confidence → heavy weights, compact layout. Elegant restraint → italic accents, wide letter-spacing on headings. Artsy/creative → bold italic display, warm serifs, expressive sizing. |
 
 **CRITICAL**: The theme is a lens, not a costume. Always maintain CV readability and professionalism.
+
+#### Artsy / Creative Theme Extensions
+
+When the user explicitly requests an artsy, painterly, or creative theme (e.g., referencing artwork, using words like "artsy," "watercolor," "colorful"), extend the design beyond pure typography:
+
+- **Warm page base**: Replace pure white with a warm cream (e.g., `#FDF5F0`) as the full-page background rectangle drawn first in the `onFirstPage` callback.
+- **Organic background washes**: Build each wash from **multiple jittered, overlapping ellipses** (5-7 per wash) rather than a single perfect shape. Each sub-ellipse is randomly offset and scaled so the result looks like a diffused watercolor cloud, not a computer-drawn oval. Keep individual alpha at **2-4%** (never above 5%) — the effect should be barely-there tinting, not visible shapes.
+- **Decorative marks**: Scatter small hand-made-looking elements across the page using canvas drawing primitives:
+  - **Paint-splatter dots**: Clusters of tiny circles (0.4-3pt radius) at 2-9% alpha in palette colors, placed with gaussian spread around focal points.
+  - **Tiny abstract flowers**: A center dot + 5 rotated petal ellipses, each at 3-6% alpha. Place 6-8 flowers in margins and corners where they won't overlap text.
+  - **Thin organic stems**: Curved bezier lines (0.25-0.5pt width) at 2-4% alpha in muted green/brown, connecting some flowers.
+  - Use a **seeded `random.Random`** instance (e.g., `Random(42)`) so the decorative layout is deterministic across regenerations.
+- **Richer text colors**: Use more saturated accent colors for name and headings. Ensure all text remains high-contrast against the cream+wash background.
+- **Bold/italic display fonts**: Use bold-italic serif display fonts (e.g., `Lora-BoldItalic`) instead of thin display fonts. Section headings should use a bold variant.
+- **Rules**: Use a slightly thicker/darker rule color that remains visible against the colored background.
+
+The user may provide reference images (artwork, paintings, color swatches). Extract the dominant palette and translate those colors into background washes, dot colors, and decorative accents. The goal is to evoke the reference artwork's *feeling*, not replicate it literally.
 
 ### Step 4: Select Fonts
 
@@ -539,15 +556,51 @@ main_table.setStyle(TableStyle([
 
 The left column gets the "story" (who you are, what you've done). The right column gets supporting details.
 
+#### Strategy C: Hybrid layout (two-column body + full-width footer)
+
+When two columns create uneven heights (e.g., experience column is much shorter than education+skills), use a hybrid layout:
+
+1. **Full-width header** — Name, headline, contact info
+2. **Two-column body** — Left: Experience. Right: Education + other sections
+3. **Full-width footer section** — Skills (or another section that benefits from wide formatting)
+
+This eliminates blank space under shorter columns by moving content to a full-width area below. Skills are ideal for this because grouped skill categories compress well across full page width.
+
+#### Company Grouping (CRITICAL for career progression)
+
+When a person held multiple positions at the same company, **group them under one company name** with tight internal spacing. This lets recruiters instantly see career progression (e.g., promotion from Junior to Senior).
+
+```python
+def company_group(company, positions, gap_after=10):
+    """Show company name once, list positions underneath with tight spacing."""
+    els = [Paragraph(company, company_style)]  # Company name: bold, consistent
+    for i, (title, dates, bullets) in enumerate(positions):
+        els.append(Paragraph(title, job_title_style))
+        els.append(Paragraph(dates, date_style))
+        if bullets:
+            for b in bullets:
+                els.append(Paragraph(f"–  {b}", bullet_style))
+        if i < len(positions) - 1:
+            els.append(Spacer(1, 3))  # Tight spacing within same company
+    els.append(Spacer(1, gap_after))  # Normal spacing between company groups
+    return els
+```
+
+**Key rules for company grouping:**
+- Company name appears **once** per group, using a **consistent bold style** regardless of whether positions have descriptions
+- Positions within a group are separated by 2-3pt (much tighter than the 8-10pt between different companies)
+- The job title style must be identical for all positions — with or without bullet descriptions
+- Sort positions within each company by date (most recent first)
+
 **Layout reference**: See [references/layout-guide.md](references/layout-guide.md) for detailed spacing, size scales, and construction patterns.
 
 **Section order** (only sections with content — omit any that are empty):
 1. **Header** — Name (large display font), headline (if non-empty), location (if non-empty)
 2. **Contact** — Email, phone, websites — displayed compactly on one or two lines, separated by a delimiter (e.g. `·` or `|`). Only include fields that have actual values.
 3. **About** — Professional summary paragraph (only if about text is non-empty, checking both `Profile.csv` Summary and `Profile Summary.csv`)
-4. **Experience** — Reverse chronological, with title/company/dates/description as bullet points (using the pre-written bullet points from Step 2)
+4. **Experience** — Reverse chronological, **grouped by company** (see "Company Grouping" below), with title/company/dates/description as bullet points (using the pre-written bullet points from Step 2)
 5. **Education** — School, degree, **field of study** (REQUIRED), dates. Show summarized focus areas and thesis (using the pre-written summaries from Step 2)
-6. **Skills** — Show ALL skills, translated to English, grouped by category (Programming, Data Science, Analytics, AI, Business, etc.)
+6. **Skills** — Show ALL skills, translated to English, grouped by category (Programming, Data Science, Analytics, AI, Business, etc.). **Skills can be placed as a full-width section below the two-column area** to fill remaining page space and avoid blank gaps.
 7. **Certifications** — Name, issuer, date, license number
 8. **Languages** — Name with proficiency level
 9. **Additional Sections** (from Step 2b) — Any custom sections discovered from non-standard files in the input folder. These appear at the end in this order:
@@ -597,10 +650,12 @@ Before finalizing, refine:
 - **Check spacing consistency** — Equal gaps between like elements, larger gaps between sections
 - **Verify font sizes form a clear scale** — Name > Section Heading > Job Title > Body > Metadata
 - **Ensure single-page fit** — If content overflows, apply prioritization rules from Step 6b, then switch to two-column layout
-- **Thin horizontal rules** (0.3-0.5pt) may separate sections — this is the ONLY non-text element allowed
+- **Thin horizontal rules** (0.3-0.5pt) may separate sections. For artsy themes, canvas-drawn decorative marks (dots, flowers, stems, washes) are also allowed — see artsy theme guidance in Step 3
 - **Test that all text fits within margins** with no overflow or clipping
 - **NEVER exceed one page** — Two-column layout is the fallback, not a second page
 - **Color must be functional** — accent color draws the eye to the right things (name, section headers), never distracts
+- **Company name consistency** — The company name style must be identical whether the position has a full description or is a compact entry (title + dates only). Never change the font, size, or color of the company name based on description presence.
+- **No blank gaps** — In two-column layouts, if one column is significantly shorter than the other, redistribute content (move sections between columns) or use a hybrid layout (Strategy C) with a full-width section below the columns. The page should feel intentionally filled, not half-empty.
 
 ### Step 8: Write and Execute the Script
 
@@ -643,9 +698,9 @@ After successful execution, report the output file path to the user along with a
 ## Essential Constraints
 
 - **Single page only** — The CV MUST fit on exactly one A4 page. Use two-column layout and content prioritization to achieve this. Never generate a multi-page CV.
-- **100% text** — No images, icons, logos, decorative shapes, or background fills. Only text and thin horizontal rules.
+- **Primarily text** — No raster images or imported clip art. Only text, thin horizontal rules, and — for artsy/creative themes — lightweight canvas-drawn decorative elements (sub-5% alpha washes, scattered dots, tiny abstract flower marks, thin stems). These decorative shapes are drawn procedurally via `canvas` primitives in the `onFirstPage` callback, not imported as image files.
 - **Fonts only from canvas-fonts** — Never use built-in PDF fonts. Always register and use TTF files from `~/.cursor/skills/canvas-design/canvas-fonts/`.
-- **White/off-white background** — Page background is always clean. Design lives in the typography.
+- **Clean background** — For standard themes, page background is white/off-white with design living in the typography. For artsy/creative themes, a warm cream base (`#FDF5F0` or similar) with soft watercolor-like color washes is allowed, provided all text remains high-contrast and readable.
 - **Professional readability** — Despite creative theming, the CV must be scannable by a recruiter in 6 seconds. Information hierarchy is paramount.
 - **LLM-preprocessed descriptions (CRITICAL)** — The language model MUST read and rewrite all experience and education descriptions BEFORE generating Python code. Never use regex-based parsing to split descriptions into bullet points. The Python script should contain pre-written, well-structured bullet points as hardcoded data.
 - **Expert craftsmanship** — The result must look like it took hours to design. Meticulous spacing. Precise alignment. Painstaking attention to every typographic detail.
